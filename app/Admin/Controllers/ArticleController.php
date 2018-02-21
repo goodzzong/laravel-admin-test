@@ -1,0 +1,130 @@
+<?php
+
+namespace App\Admin\Controllers;
+
+
+use App\Article;
+
+use Encore\Admin\Form;
+use Encore\Admin\Grid;
+use Encore\Admin\Facades\Admin;
+use Encore\Admin\Layout\Content;
+use App\Http\Controllers\Controller;
+use Encore\Admin\Controllers\ModelForm;
+use Illuminate\Http\Request;
+
+class ArticleController extends Controller
+{
+    use ModelForm;
+
+    public function index()
+    {
+        return Admin::content(function (Content $content) {
+
+            $content->header('대문페이지');
+            $content->description('리스트');
+
+            $content->body($this->grid());
+        });
+    }
+
+
+    public function edit($id)
+    {
+        return Admin::content(function (Content $content) use ($id) {
+
+            $content->header('대문페이지');
+            $content->description('수정');
+
+            $content->body($this->form()->edit($id));
+        });
+    }
+
+
+    public function create()
+    {
+        return Admin::content(function (Content $content) {
+
+            $content->header('대문페이지');
+            $content->description('등록');
+
+            $content->body($this->form());
+        });
+    }
+
+
+    protected function grid()
+    {
+        return Admin::grid(Article::class, function (Grid $grid) {
+
+
+            $grid->model()->ordered();
+            $grid->id('ID')->sortable();
+
+            $states = [
+                'on' => ['value' => 1, 'text' => 'YES', 'color' => 'success'],
+                'off' => ['value' => 2, 'text' => 'NO', 'color' => 'default'],
+            ];
+
+            $grid->display('공개여부')->switch($states);
+            $grid->rank('순서')->orderable();
+            $grid->picture('이미지')->image();
+
+            $grid->title('제목')->ucfirst()->limit(30)->editable();
+            $grid->created_at('등록일');
+            $grid->updated_at('수정일');
+
+
+            $grid->filter(function (Grid\Filter $filter) {
+
+                $filter->like('title', '제목');
+                $filter->equal('created_at', '등록일')->datetime();
+                $filter->between('updated_at', '수정일')->datetime();
+
+            });
+
+            //$grid->exporter(new ExcelExporter());
+        });
+    }
+
+
+    protected function form()
+    {
+
+        return Admin::form(Article::class, function (Form $form) {
+
+            $form->hidden('user_id')->value(Admin::user()->id);
+            $form->hidden('rank')->value(Article::count());
+
+            $form->display('id', 'ID');
+
+            $form->text('title', '제목')->rules('required', [
+                'required' => '제목을 입력해 주세요.',
+            ]);
+            $form->textarea('content', '내용')->rules('required', [
+                'required' => '내용을 입력해 주세요.',
+            ]);
+            $form->image('picture', '이미지');
+
+            $states = [
+                'on' => ['value' => 1, 'text' => 'YES', 'color' => 'success'],
+                'off' => ['value' => 2, 'text' => 'NO', 'color' => 'default'],
+            ];
+
+            $form->switch('display', '공개여부')->states($states)->default(1);
+            $form->display('created_at', '등록일');
+            $form->display('updated_at', '수정일');
+        });
+    }
+
+
+    public function display(Request $request)
+    {
+
+        foreach (Article::find($request->get('ids')) as $article) {
+            $article->display = $request->get('action');
+            $article->save();
+        }
+    }
+
+}
